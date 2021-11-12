@@ -1,0 +1,13 @@
+Runtime requirements
+
+libboost-program-options1.71-dev
+libgeographic-dev
+libcrypto++-dev
+libboost-date-time1.71-dev
+libmosquitto-dev
+
+UDP port 8947
+
+sudo ./socktap  -a benchmark --print-rx-cam
+
+sudo ./socktap -a ca  --print-tx-cam --mac-address 00:00:00:00:00:01
