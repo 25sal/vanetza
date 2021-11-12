@@ -5,6 +5,7 @@ libgeographic-dev
 libcrypto++-dev
 libboost-date-time1.71-dev
 libmosquitto-dev
+libjsoncpp-dev
 
 UDP port 8947
 
