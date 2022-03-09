@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include "denm_application.hpp"
 #include <vanetza/btp/ports.hpp>
 #include <vanetza/asn1/denm.hpp>
@@ -8,8 +10,6 @@
 #include <chrono>
 #include <exception>
 #include <functional>
-#include <iostream>
-#include <fstream>
 #include <jsoncpp/json/json.h>
 #include <jsoncpp/json/value.h>
 #include <vanetza/asn1/security/CountryAndRegions.h>
@@ -19,13 +19,14 @@
 using namespace vanetza;
 using namespace vanetza::facilities;
 using namespace std::chrono;
-using namespace std;
 using namespace vanetza::security;
 
 
 DenmApplication::DenmApplication(PositionProvider& positioning, Runtime& rt) :
     positioning_(positioning), runtime_(rt), denm_interval_(seconds(1))
 {
+        
+    myfile.open("a.txt");
     schedule_timer();
 }
 
@@ -73,7 +74,40 @@ void DenmApplication::schedule_timer()
 
 void DenmApplication::on_timer(Clock::time_point)
 {
+
+ if(myfile.is_open() && myfile.peek()!=EOF)
+  {
+
+    long int linen, lat, lon, altVal, altConf, sType, infQuality, causecode, sub, evePos, distance, segID, timest, country; 
+    int valDur;
+
+    myfile >> linen;
+    if(linen<0) 
+    {
+        myfile.close();
+        return;
+    }
+    myfile >> lat;
+    myfile >> lon;
+    myfile >> altVal;
+    myfile >> altConf;
+    myfile >> valDur;
+    myfile >> sType;
+    myfile >> infQuality;
+    myfile >> causecode;
+    myfile >> sub;
+    myfile >> evePos;
+    myfile >> distance;
+    myfile >> segID;
+    myfile >> timest;
+    myfile >> country;
+
+
+    cout << lat << lon << altVal << altConf << valDur << sType << infQuality <<" causecode:"<< causecode<<" sub: " << sub << evePos << distance << segID << timest << "country: "<<country << endl;
+    
+  
     schedule_timer();
+
     vanetza::asn1::Denm message;
     
     ItsPduHeader_t& header = message->header;
@@ -89,7 +123,7 @@ void DenmApplication::on_timer(Clock::time_point)
         std::cerr << "Skipping DENM, because no good position is available, yet." << std::endl;
         return;
     }
-
+   
     //const auto time_now = duration_cast<milliseconds>(runtime_.now().time_since_epoch());
     const auto time_now  = duration_cast<seconds>(system_clock::now().time_since_epoch());
     uint64_t gen_delta_time = time_now.count();
@@ -114,46 +148,48 @@ void DenmApplication::on_timer(Clock::time_point)
     */
     //memcpy(&management.referenceTime, &gen_delta_time, sizeof(time_now));
    
-    long int lat, lon, altVal, altConf, sType, infQuality, causecode, sub, evePos, distance, segID, timest, country; 
-    int valDur;
-    ifstream myfile;
-myfile.open("a.txt");
 
-myfile >> lat;
-myfile >> lon;
-myfile >> altVal;
-myfile >> altConf;
-myfile >> valDur;
-myfile >> sType;
-myfile >> infQuality;
-myfile >> causecode;
-myfile >> sub;
-myfile >> evePos;
-myfile >> distance;
-myfile >> segID;
-myfile >> timest;
-myfile >> country;
-
-myfile.close();
-//cout << lat << lon << altVal << altConf << valDur << sType << infQuality << causecode << sub << evePos << distance << segID << timest << country << endl;
-    
-    
     
     
     int ret1 =  asn_uint642INTEGER((INTEGER_t*)&management.referenceTime, gen_delta_time);
     int ret2 =  asn_uint642INTEGER((INTEGER_t*)&management.detectionTime, gen_delta_time);
     assert(ret1+ret2==0);
-    management.eventPosition.latitude = lat ;
-    management.eventPosition.longitude = lon;
-    management.eventPosition.altitude.altitudeValue = altVal;
-    management.eventPosition.altitude.altitudeConfidence = altConf;
+    /*SALVATORE**/
+    
+    PositionFix fix;
+    fix.timestamp = runtime_.now();
+    fix.latitude = (double) lat * units::degree;
+    fix.longitude = (double) lon * units::degree;
+    fix.confidence.semi_major =  5.0 * units::si::meter;
+    fix.confidence.semi_minor = fix.confidence.semi_major;
+    
+    
+
+    //management.eventPosition.latitude = lat ;
+    //management.eventPosition.longitude = lon;
+    //management.eventPosition.altitude.altitudeValue = altVal;
+    //management.eventPosition.altitude.altitudeConfidence = altConf;
     //management.eventPosition.roadSegmentReferenceID.id = segID;
     message->denm.management.relevanceDistance = vanetza::asn1::allocate<RelevanceDistance_t>();
-    *(message->denm.management.relevanceDistance) = distance;
+    /*
+    if(distance > 10000) 
+    {}
+    elseif(distance < 5000)
+    4,	 lessThan1000m(4) 
+	1,	 lessThan100m(1) 
+	6,	 lessThan10km(6) 
+	2,	 lessThan200m(2) 
+	3,   lessThan500m(3) 
+	0,	 lessThan50m(0) 
+	5,	 lessThan5km(5) 
+	7	 over10km(7) 
+    */
+
+    *(message->denm.management.relevanceDistance) = RelevanceDistance_lessThan1000m;
     message->denm.management.validityDuration = vanetza::asn1::allocate<ValidityDuration_t>();
     *(message->denm.management.validityDuration) = valDur;
     management.stationType = sType;
-    //copy(position, management.referencePosition);
+    (fix, management.eventPosition);
     
     
     
@@ -166,9 +202,17 @@ myfile.close();
     message->denm.management.stationType = StationType_unknown; // TODO retrieve type from SUMO
     //from artery
     message->denm.situation = vanetza::asn1::allocate<SituationContainer_t>();
-    message->denm.situation->informationQuality = infQuality;
+    message->denm.situation = vanetza::asn1::allocate<SituationContainer_t>();
+    /*
+    switch(infQuality){0,1,7: InformationQuality_highest} ...
+    */
+    message->denm.situation->informationQuality = InformationQuality_highest;
+    message->denm.situation->eventType.causeCode = 1;
     
-    message->denm.situation->eventType.causeCode = causecode;
+    /*
+    Gli interi 
+    */
+    message->denm.situation->eventType.causeCode = causecode;//CauseCodeType_accident;
     message->denm.situation->eventType.subCauseCode = sub;
     //*(message->denm.situation->eventHistory.eventPosition.deltaReferencePosition) = evePos;
     //situation.eventHistory.eventPosition =  DeltaReferencePosition; ? 
@@ -192,16 +236,7 @@ node_file >> node;
 cout<<node; */
     
     	
-    	int i;
-ifstream myfile;
-myfile.open("a.txt");
 
-myfile >> i;
-
-myfile.close();
-cout << i << endl;
-
-        std::cout << "Generated DENM contains\n";
         print_indented(std::cout, message, "  ", 1);
 	
     }
@@ -220,4 +255,9 @@ cout << i << endl;
         throw std::runtime_error("DENM application data request failed");
     }
    
+  }
+  else{
+  cout<<"No DENM messages"<<endl;
+  return;
+  }
 }

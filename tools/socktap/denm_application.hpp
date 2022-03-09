@@ -5,7 +5,8 @@
 #include <vanetza/common/clock.hpp>
 #include <vanetza/common/position_provider.hpp>
 #include <vanetza/common/runtime.hpp>
-
+#include <fstream>
+using namespace std;
 class DenmApplication : public Application
 {
 public:
@@ -25,6 +26,7 @@ private:
     vanetza::Clock::duration denm_interval_;
     bool print_rx_msg_ = false;
     bool print_tx_msg_ = false;
+    ifstream myfile;
 };
 
 #endif /* DENM_APPLICATION_HPP_EUIC2VFR */

@@ -2,8 +2,10 @@
 #include <chrono>
 #include <iostream>
 #include <vanetza/asn1/cam.hpp>
+#include <vanetza/asn1/denm.hpp>
 #include <vanetza/asn1/packet_visitor.hpp>
 #include <vanetza/facilities/cam_functions.hpp>
+#include <vanetza/facilities/denm_functions.hpp>
 #include <boost/units/cmath.hpp>
 #include <exception>
 #include <functional>
@@ -58,11 +60,31 @@ Application::PromiscuousHook* BenchmarkApplication::promiscuous_hook()
 
 void BenchmarkApplication::tap_packet(const DataIndication& indication, const UpPacket& packet)
 {
-	asn1::PacketVisitor<asn1::Cam> visitor;
-    std::shared_ptr<const asn1::Cam> cam = boost::apply_visitor(visitor, packet);
+	asn1::PacketVisitor<asn1::Cam> visitorc;
+    std::shared_ptr<const asn1::Cam> cam = boost::apply_visitor(visitorc, packet);
+ 
+   
 
-    std::cout << "CAM application received a packet with " << (cam ? "decodable" : "broken") << " content" << std::endl;
-    if (cam && print_rx_msg_) {
+    asn1::PacketVisitor<asn1::Denm> visitor;
+    std::shared_ptr<const asn1::Denm> denm = boost::apply_visitor(visitor, packet);
+     if(! cam && ! denm)
+     {
+     std::cout << "Application received a packet with " << "broken" << " content" << std::endl;
+     }
+    else if(cam)
+    {
+         std::cout << "Application received a CAM packet with " << "decodable" << " content" << std::endl;
+    }
+    else 
+        std::cout << "Application received a DENM packet with " << "decodable" << " content" << std::endl;
+
+    if (denm && print_rx_msg_) {
+        std::cout << "Received DENM contains\n";
+        print_indented(std::cout, *denm, "  ", 1);
+    }
+
+
+    else if (cam && print_rx_msg_) {
 		int n= 0;
         std::cout << "Received CAM contains\n";
        // print_indented(std::cout, *cam, "  ", 1);
@@ -128,7 +150,7 @@ int BenchmarkApplication::connetti(char*payload){
 	
 	char id[24];
     
-    char* topic = "test/topic";
+    char topic[] = "test/topic";
  
     struct mosquitto *mosq;
     int rc = 0;
