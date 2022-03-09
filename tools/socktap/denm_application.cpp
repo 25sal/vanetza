@@ -154,21 +154,12 @@ void DenmApplication::on_timer(Clock::time_point)
     int ret1 =  asn_uint642INTEGER((INTEGER_t*)&management.referenceTime, gen_delta_time);
     int ret2 =  asn_uint642INTEGER((INTEGER_t*)&management.detectionTime, gen_delta_time);
     assert(ret1+ret2==0);
-    /*SALVATORE**/
-    
-    PositionFix fix;
-    fix.timestamp = runtime_.now();
-    fix.latitude = (double) lat * units::degree;
-    fix.longitude = (double) lon * units::degree;
-    fix.confidence.semi_major =  5.0 * units::si::meter;
-    fix.confidence.semi_minor = fix.confidence.semi_major;
-    
-    
 
-    //management.eventPosition.latitude = lat ;
-    //management.eventPosition.longitude = lon;
-    //management.eventPosition.altitude.altitudeValue = altVal;
-    //management.eventPosition.altitude.altitudeConfidence = altConf;
+
+    management.eventPosition.latitude = lat ;
+    management.eventPosition.longitude = lon;
+    management.eventPosition.altitude.altitudeValue = altVal;
+    management.eventPosition.altitude.altitudeConfidence = altConf;
     //management.eventPosition.roadSegmentReferenceID.id = segID;
     message->denm.management.relevanceDistance = vanetza::asn1::allocate<RelevanceDistance_t>();
     /*
@@ -185,11 +176,10 @@ void DenmApplication::on_timer(Clock::time_point)
 	7	 over10km(7) 
     */
 
-    *(message->denm.management.relevanceDistance) = RelevanceDistance_lessThan1000m;
+    *(message->denm.management.relevanceDistance) = distance;
     message->denm.management.validityDuration = vanetza::asn1::allocate<ValidityDuration_t>();
     *(message->denm.management.validityDuration) = valDur;
     management.stationType = sType;
-    (fix, management.eventPosition);
     
     
     
